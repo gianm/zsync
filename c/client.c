@@ -539,6 +539,19 @@ int main(int argc, char **argv) {
     strcpy(temp_file, filename);
     strcat(temp_file, ".part");
 
+    /* Bail out for 0 length files */
+    if (! zsync_filelen(zs)) {
+        FILE *f = fopen(filename, "w");
+        if (!f) {
+            perror("open");
+            fprintf(stderr, "Could not open %s for writing zero byte file\n", filename);
+            exit(1);
+        }
+        mtime = zsync_mtime(zs);
+        if (mtime != -1) set_mtime(filename, mtime);
+        return 0;
+    }
+
     {   /* STEP 2: read available local data and fill in what we know in the
          *target file */
         int i;

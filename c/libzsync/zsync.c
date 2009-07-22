@@ -42,6 +42,8 @@
 #include <ctype.h>
 #include <time.h>
 
+#include <errno.h>
+
 #include <arpa/inet.h>
 
 #ifdef WITH_DMALLOC
@@ -139,6 +141,7 @@ static char **append_ptrlist(int *n, char **p, char *a) {
 
 /* Constructor */
 struct zsync_state *zsync_begin(FILE * f) {
+  int valid_length=0;
     /* Defaults for the checksum bytes and sequential matches properties of the
      * rcksum_state. These are the defaults from versions of zsync before these
      * were variable. */
@@ -194,7 +197,11 @@ struct zsync_state *zsync_begin(FILE * f) {
                 }
             }
             else if (!strcmp(buf, "Length")) {
-                zs->filelen = atol(p);
+                errno = 0;
+                zs->filelen = strtol(p, 0, 10);
+                if (errno == 0) {
+                    valid_length = 1;
+                }
             }
             else if (!strcmp(buf, "Filename")) {
                 zs->filename = strdup(p);
@@ -303,7 +310,12 @@ struct zsync_state *zsync_begin(FILE * f) {
             return NULL;
         }
     }
-    if (!zs->filelen || !zs->blocksize) {
+    /* zero length file, skip blocksums */
+    if (valid_length && !zs->filelen) {
+        return zs;
+    }
+    /* cannot test !zs->filelen or we will fail on valid 0 length files */
+    if (!valid_length || !zs->blocksize) {
         fprintf(stderr, "Not a zsync file (looked for Blocksize and Length lines)\n");
         free(zs);
         return NULL;
@@ -389,6 +401,10 @@ int zsync_blocksize(const struct zsync_state *zs) {
  * zsync.  Malloced string to be freed by the caller. */
 char *zsync_filename(const struct zsync_state *zs) {
     return strdup(zs->gzhead && zs->zfilename ? zs->zfilename : zs->filename);
+}
+
+off_t zsync_filelen(const struct zsync_state *zs) {
+    return zs->filelen;
 }
 
 /* time_t = zsync_mtime(self)
