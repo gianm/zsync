@@ -25,7 +25,7 @@
 # ifdef PRIu64
 #  define OFF_T_PF "%" PRIu64
 # else
-#  define OFF_T_PF "%llu"
+#  define OFF_T_PF "%qu"
 # endif
 #else
 # ifdef PRIu32
