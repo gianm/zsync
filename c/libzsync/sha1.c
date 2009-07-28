@@ -21,7 +21,13 @@ static const char rcsid[] = "$OpenBSD: sha1.c,v 1.19 2004/05/28 15:10:27 millert
 #endif /* LIBC_SCCS and not lint */
 
 #include <sys/param.h>
+
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#else
 #include <stdint.h>
+#endif
+
 #include <string.h>
 #include "sha1.h"
 
