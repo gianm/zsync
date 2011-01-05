@@ -376,6 +376,9 @@ static int zsync_read_blocksums(struct zsync_state *zs, FILE * f,
 static time_t parse_822(const char* ts) {
     struct tm t;
 
+    /* strptime will not initialize isdst */
+    t.tm_isdst = -1;
+
     if (strptime(ts, "%a, %d %b %Y %H:%M:%S %z", &t) == NULL
         && strptime(ts, "%d %b %Y %H:%M:%S %z", &t) == NULL) {
         return -1;
