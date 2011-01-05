@@ -495,6 +495,10 @@ off_t *zsync_needed_byte_ranges(struct zsync_state * zs, int *num, int type) {
     for (i = 0; i < nrange; i++) {
         byterange[2 * i] = blrange[2 * i] * zs->blocksize;
         byterange[2 * i + 1] = blrange[2 * i + 1] * zs->blocksize - 1;
+
+        /* Don't go past the end of the file */
+        if( byterange[2*i+1] > zs->filelen - 1 )
+            byterange[2*i+1] = zs->filelen - 1;
     }
     free(blrange);      /* And release the blocks, we're done with them */
 
