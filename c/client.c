@@ -40,6 +40,9 @@
 #include "url.h"
 #include "progress.h"
 
+/* For curl_global_init, curl_global_cleanup */
+#include <curl/curl.h>
+
 /* FILE* f = open_zcat_pipe(file_str)
  * Returns a (popen) filehandle which when read returns the un-gzipped content
  * of the given file. Or NULL on error; or the filehandle may fail to read. It
@@ -280,15 +283,12 @@ static float calc_zsync_progress(const struct zsync_state *zs) {
  * For the given zsync_state, using the given URL (which is a copy of the
  * actual content of the target file is type == 0, or a compressed copy of it
  * if type == 1), retrieve the parts of the target that are currently missing. 
- * Returns true if this URL was useful, false if we crashed and burned.
+ * Returns zero if this URL was useful, nonzero if we crashed and burned.
  */
-#define BUFFERSIZE 8192
-
 int fetch_remaining_blocks_http(struct zsync_state *z, const char *url,
                                 int type) {
     int ret = 0;
     struct range_fetch *rf;
-    unsigned char *buf;
     struct zsync_receiver *zr;
 
     /* URL might be relative - we need an absolute URL to do a fetch */
@@ -301,29 +301,20 @@ int fetch_remaining_blocks_http(struct zsync_state *z, const char *url,
     }
 
     /* Start a range fetch and a zsync receiver */
-    rf = range_fetch_start(u);
-    if (!rf) {
+    zr = zsync_begin_receive(z, type);
+    if (!zr) {
         free(u);
         return -1;
     }
-    zr = zsync_begin_receive(z, type);
-    if (!zr) {
-        range_fetch_end(rf);
+    rf = range_fetch_start(u, zr);
+    if (!rf) {
+        zsync_end_receive(zr);
         free(u);
         return -1;
     }
 
     if (!no_progress)
         fprintf(stderr, "downloading from %s:", u);
-
-    /* Create a read buffer */
-    buf = malloc(BUFFERSIZE);
-    if (!buf) {
-        zsync_end_receive(zr);
-        range_fetch_end(rf);
-        free(u);
-        return -1;
-    }
 
     {   /* Get a set of byte ranges that we need to complete the target */
         int nrange;
@@ -339,8 +330,6 @@ int fetch_remaining_blocks_http(struct zsync_state *z, const char *url,
     }
 
     {
-        int len;
-        off_t zoffset;
         struct progress p = { 0, 0, 0, 0 };
 
         /* Set up progress display to run during the fetch */
@@ -349,39 +338,22 @@ int fetch_remaining_blocks_http(struct zsync_state *z, const char *url,
             do_progress(&p, calc_zsync_progress(z), range_fetch_bytes_down(rf));
         }
 
-        /* Loop while we're receiving data, until we're done or there is an error */
-        while (!ret
-               && (len = get_range_block(rf, &zoffset, buf, BUFFERSIZE)) > 0) {
-            /* Pass received data to the zsync receiver, which writes it to the
-             * appropriate location in the target file */
-            if (zsync_receive_data(zr, buf, zoffset, len) != 0)
-                ret = 1;
+        do {
+            ret = range_fetch_perform(rf);
 
-            /* Maintain progress display */
-            if (!no_progress)
+            if (ret && ! no_progress) {
+                /* Maintain progress display
+                 * XXX: Non-curl version could update in the middle of responses */
                 do_progress(&p, calc_zsync_progress(z),
                             range_fetch_bytes_down(rf));
-
-            // Needed in case next call returns len=0 and we need to signal where the EOF was.
-            zoffset += len;     
-        }
-
-        /* If error, we need to flag that to our caller */
-        if (len < 0)
-            ret = -1;
-
-        /* Else, let the zsync receiver know that we're at EOF; there
-         * could be data in its buffer that it can use or needs to process */
-        else if( zsync_receive_data(zr, NULL, zoffset, 0) ) {
-            ret = 1;
-        }
+            }
+        } while( ret > 0 );
 
         if (!no_progress)
-            end_progress(&p, zsync_status(z) >= 2 ? 2 : len == 0 ? 1 : 0);
+            end_progress(&p, zsync_status(z) >= 2 ? 2 : ret == 0 ? 1 : 0);
     }
 
     /* Clean up */
-    free(buf);
     http_down += range_fetch_bytes_down(rf);
     zsync_end_receive(zr);
     range_fetch_end(rf);
@@ -462,8 +434,7 @@ int main(int argc, char **argv) {
     srand(getpid());
     {   /* Option parsing */
         int opt;
-
-        while ((opt = getopt(argc, argv, "A:k:o:i:Vsqu:")) != -1) {
+        while ((opt = getopt(argc, argv, "A:k:o:i:Vsqvu:C:K")) != -1) {
             switch (opt) {
             case 'A':           /* Authentication options for remote server */
                 {               /* Scan string as hostname=username:password */
@@ -477,8 +448,15 @@ int main(int argc, char **argv) {
                         exit(1);
                     }
                     else {
+                        /* XXX - HTTP Auth not working right now */
+                        fprintf(stderr,
+                               "HTTP Authentication is not supported in this version\n");
+                        exit(1);
+
+                        /*
                         *q++ = *r++ = 0;
                         add_auth(p, q, r);
+                        */
                     }
                 }
                 break;
@@ -502,8 +480,19 @@ int main(int argc, char **argv) {
             case 'q':
                 no_progress = 1;
                 break;
+            case 'v':
+                be_verbose = 1;
+                break;
             case 'u':
                 referer = strdup(optarg);
+                break;
+            case 'C':
+                /* CA Cert path */
+                cacert = strdup(optarg);
+                break;
+            case 'K':
+                /* Insecure (disable SSL host/peer verification) */
+                be_insecure = 1;
                 break;
             }
         }
@@ -524,11 +513,13 @@ int main(int argc, char **argv) {
     /* No progress display except on terminal */
     if (!isatty(0))
         no_progress = 1;
-    {   /* Get proxy setting from the environment */
-        char *pr = getenv("http_proxy");
 
-        if (pr != NULL)
-            set_proxy_from_string(pr);
+    /* Global libcurl init -- must be called exactly once per program */
+    if( curl_global_init( CURL_GLOBAL_ALL ) ) {
+        /* libcurl is busted */
+        fprintf(stderr,
+                "curl_global_init failed miserably!\n");
+        exit(3);
     }
 
     /* STEP 1: Read the zsync control file */
@@ -683,7 +674,9 @@ int main(int argc, char **argv) {
     /* Final stats and cleanup */
     if (!no_progress)
         printf("used %lld local, fetched %lld\n", local_used, http_down);
+    free(cacert);
     free(referer);
     free(temp_file);
+    curl_global_cleanup();
     return 0;
 }

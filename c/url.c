@@ -29,57 +29,6 @@
 
 const char http_scheme[] = { "http://" };
 
-/* path_str = get_http_host_port(url_str, &host, host_len, &port_str)
- * For the given url_str, returns:
- * the hostname, in host[] array provided by caller (up to length host_len)
- * the port (if any) as a malloced string, pointer to this stored in *port_str
- * return value is the path part of the URL, a malloced string.
- * Or return value NULL on failure (host and port could have been written to).
- */
-char *get_http_host_port(const char *url, char *hostn, int hnlen, char **port) {
-    char *p, *q;
-
-    /* Check it's HTTP */
-    if (memcmp(url, http_scheme, strlen(http_scheme)))
-        return NULL;
-
-    q = url + strlen(http_scheme);
-
-    p = strchr(q, ':');
-    if (p) {                    /* if : is after the first /, we have looked too far ahead */
-        char *r = strchr(q, '/');
-        if (r && r < p)
-            p = NULL;
-    }
-    if (!p) {
-        *port = strdup("http");
-        p = strchr(q, '/');
-    }
-
-    if (!p)
-        return NULL;
-
-    if (p - q < hnlen - 1) {
-        memcpy(hostn, q, p - q);
-        hostn[p - q] = 0;
-    }
-
-    if (*p == ':') {
-        size_t l;
-        q = p;
-        p = strchr(p, '/');
-        l = p ? (size_t) (p - q - 1) : strlen(q) - 1;
-        *port = malloc(l + 1);
-        if (!*port)
-            return NULL;
-        memcpy(*port, q + 1, l);
-        (*port)[l] = 0;
-        if (!p)
-            p = strdup("/");
-    }
-    return p;
-}
-
 /* abs_url_str = make_url_absolute(base_str, url_str)
  * Returns an absolute version of url_str relative to base_str, as a malloced
  * string. Or NULL on error. */
