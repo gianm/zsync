@@ -86,8 +86,8 @@ struct rcksum_state *rcksum_init(zs_blockid nblocks, size_t blocksize,
             }
 
             z->blockhashes =
-                malloc(sizeof(z->blockhashes[0]) *
-                        (z->blocks + z->seq_matches));
+                calloc((z->blocks + z->seq_matches),
+                        sizeof(z->blockhashes[0]));
             if (z->blockhashes != NULL)
                 return z;
 
