@@ -13,6 +13,9 @@
  *   COPYING file for details.
  */
 
+#ifndef ZSYNC_ZSYNC_H
+#define ZSYNC_ZSYNC_H
+
 struct zsync_state;
 
 /* zsync_begin - load a zsync file and return data structure to use for the rest of the process.
@@ -95,3 +98,4 @@ void zsync_end_receive(struct zsync_receiver* zr);
  * Returns 0 for success; if not, you should not submit more data. */
 int zsync_receive_data(struct zsync_receiver* zr, const unsigned char* buf, off_t offset, size_t len);
 
+#endif
