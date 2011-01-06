@@ -514,6 +514,14 @@ int main(int argc, char **argv) {
     if (!isatty(0))
         no_progress = 1;
 
+    /* Respect ZSYNC_CA_BUNDLE environment variable */
+    if( !cacert ) {
+        char *env_cacert;
+        if( env_cacert = getenv("ZSYNC_CA_BUNDLE") ) {
+            cacert = strdup(env_cacert);
+        }
+    }
+
     /* Global libcurl init -- must be called exactly once per program */
     if( curl_global_init( CURL_GLOBAL_ALL ) ) {
         /* libcurl is busted */
