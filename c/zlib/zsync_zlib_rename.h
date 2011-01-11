@@ -1,0 +1,49 @@
+/* Rename zlib symbols to avoid namespace pollution. */
+
+#define deflateInit_  zsync__deflateInit_
+#define deflate       zsync__deflate
+#define deflateEnd    zsync__deflateEnd
+#define inflateInit_  zsync__inflateInit_
+#define inflate       zsync__inflate
+#define inflateEnd    zsync__inflateEnd
+#define deflateInit2_ zsync__deflateInit2_
+#define deflateSetDictionary zsync__deflateSetDictionary
+#define deflateCopy   zsync__deflateCopy
+#define deflateReset  zsync__deflateReset
+#define deflatePrime  zsync__deflatePrime
+#define deflateParams zsync__deflateParams
+#define deflateBound  zsync__deflateBound
+#define inflateInit2_ zsync__inflateInit2_
+#define inflateSetDictionary zsync__inflateSetDictionary
+#define inflateSync   zsync__inflateSync
+#define inflateSyncPoint zsync__inflateSyncPoint
+#define inflateCopy   zsync__inflateCopy
+#define inflateReset  zsync__inflateReset
+#define compress      zsync__compress
+#define compress2     zsync__compress2
+#define compressBound zsync__compressBound
+#define uncompress    zsync__uncompress
+#define adler32       zsync__adler32
+#define crc32         zsync__crc32
+#define get_crc_table zsync__get_crc_table
+ 
+#define Byte          zsync__Byte
+#define uInt          zsync__uInt
+#define uLong         zsync__uLong
+#define Bytef         zsync__Bytef
+#define charf         zsync__charf
+#define intf          zsync__intf
+#define uIntf         zsync__uIntf
+#define uLongf        zsync__uLongf
+#define voidpf        zsync__voidpf
+#define voidp         zsync__voidp
+
+#define inflate_advance zsync__inflate_advance
+#define inflateSafePoint zsync__inflateSafePoint
+#define updatewindow zsync__updatewindow
+#define inflate_table zsync__inflate_table
+#define zcalloc zsync__zcalloc
+#define zcfree zsync__zcfree
+#define zError zsync__zError
+#define zlibCompileFlags zsync__zlibCompileFlags
+#define zlibVersion zsync__zlibVersion

@@ -31,6 +31,7 @@
 #ifndef ZLIB_H
 #define ZLIB_H
 
+#include "zsync_zlib_rename.h"
 #include "zconf.h"
 
 #ifdef __cplusplus

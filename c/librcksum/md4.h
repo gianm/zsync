@@ -16,6 +16,17 @@
 #ifndef _MD4_H_
 #define _MD4_H_
 
+/* Rename MD4 symbols to avoid namespace pollution. */
+#define MD4Init         zsync__MD4Init
+#define MD4Update       zsync__MD4Update
+#define MD4Pad          zsync__MD4Pad
+#define MD4Final        zsync__MD4Final
+#define MD4Transform    zsync__MD4Transform
+#define MD4End          zsync__MD4End
+#define MD4File         zsync__MD4File
+#define MD4FileChunk    zsync__MD4FileChunk
+#define MD4Data         zsync__MD4Data
+
 #include "zsglobal.h"
 
 #ifdef HAVE_INTTYPES_H

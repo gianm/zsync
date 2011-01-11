@@ -9,6 +9,17 @@
 #ifndef _SHA1_H
 #define _SHA1_H
 
+/* Rename SHA1 symbols to avoid namespace pollution. */
+#define SHA1Init         zsync__SHA1Init
+#define SHA1Pad          zsync__SHA1Pad
+#define SHA1Transform    zsync__SHA1Transform
+#define SHA1Update       zsync__SHA1Update
+#define SHA1Final        zsync__SHA1Final
+#define SHA1End          zsync__SHA1End
+#define SHA1File         zsync__SHA1File
+#define SHA1FileChunk    zsync__SHA1FileChunk
+#define SHA1Data         zsync__SHA1Data
+
 #include "config.h"
 
 #ifdef HAVE_INTTYPES_H
