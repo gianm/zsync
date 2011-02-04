@@ -63,6 +63,12 @@ int be_insecure = 0;
 /* Should we tell curl to be verbose? */
 int be_verbose = 0;
 
+/* Should we tell curl to set a timeout? */
+long use_timeout = 0;
+
+/* Declare up here so we can use it in make_curl_handle */
+int range_fetch_sockoptcallback( void *clientp, curl_socket_t curlfd, curlsocktype purpose );
+
 /* add_auth(host, user, pass)
  * Specify user & password combination to use connecting to the given host.
  */
@@ -102,6 +108,9 @@ CURL *make_curl_handle() {
     /* Set a User-Agent string */
     curl_easy_setopt( curl, CURLOPT_USERAGENT, "zsync/" VERSION );
 
+    /* Turn on SO_KEEPALIVE */
+    curl_easy_setopt( curl, CURLOPT_SOCKOPTFUNCTION, range_fetch_sockoptcallback );
+
     /* Command line options */
 
     if(be_verbose) {
@@ -123,6 +132,11 @@ CURL *make_curl_handle() {
         /* -K */
         curl_easy_setopt( curl, CURLOPT_SSL_VERIFYPEER, 0 );
         curl_easy_setopt( curl, CURLOPT_SSL_VERIFYHOST, 0 );
+    }
+
+    if(use_timeout) {
+        /* -T */
+        curl_easy_setopt( curl, CURLOPT_TIMEOUT, use_timeout );
     }
 
     return curl;
@@ -315,6 +329,22 @@ int range_fetch_expect( struct range_fetch *rf, off_t from, off_t to ) {
     rf->block_left = to + 1 - from;
     rf->offset = from;
 
+    return 0;
+}
+
+/* Curl SOCKOPTFUNCTION. Sets SO_KEEPALIVE on the socket. */
+int range_fetch_sockoptcallback( void *clientp, curl_socket_t curlfd, curlsocktype purpose ) {
+
+    /* CURLSOCKTYPE_IPCXN is the primary connection */
+    if( purpose == CURLSOCKTYPE_IPCXN ) {
+        int optval = 1;
+        if( setsockopt(curlfd, SOL_SOCKET, SO_KEEPALIVE, (void *)&optval, sizeof(optval) ) ) {
+            /* setsockopt failed. continue anyway. */
+            perror("setsockopt");
+        }
+    }
+
+    /* Returns 0 on success */
     return 0;
 }
 

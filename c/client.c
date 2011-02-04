@@ -434,7 +434,7 @@ int main(int argc, char **argv) {
     srand(getpid());
     {   /* Option parsing */
         int opt;
-        while ((opt = getopt(argc, argv, "A:k:o:i:Vsqvu:C:K")) != -1) {
+        while ((opt = getopt(argc, argv, "A:k:o:i:Vsqvu:C:KT:")) != -1) {
             switch (opt) {
             case 'A':           /* Authentication options for remote server */
                 {               /* Scan string as hostname=username:password */
@@ -493,6 +493,19 @@ int main(int argc, char **argv) {
             case 'K':
                 /* Insecure (disable SSL host/peer verification) */
                 be_insecure = 1;
+                break;
+            case 'T':
+                /* Timeout */
+                {
+                    char *endptr = NULL;
+                    errno = 0;
+                    use_timeout = strtol( optarg, &endptr, 10 );
+                    if( errno || *endptr != 0 || use_timeout < 0 ) {
+                        /* Unable to convert, garbage at the end of the string, or number was negative */
+                        fprintf( stderr, "Timeout (-T): Invalid number `%s'\n", optarg );
+                        exit(1);
+                    }
+                }
                 break;
             }
         }

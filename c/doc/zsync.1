@@ -57,6 +57,9 @@ Use the specified certificate file to verify the peer when making https connecti
 .TP
 \fB\-K\fR
 Do not perform peer verification when making https connections.
+.TP
+\fB\-T\fR \fItimeout\fP
+Timeout, in seconds, per HTTP transfer. Note that zsync may make multiple HTTP transfers over the course of one run. If this option is omitted, no timeout will be set.
 .TP 
 \fB\-v\fR
 Send HTTP debugging information to stderr, including request and response headers.

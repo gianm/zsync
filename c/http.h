@@ -22,6 +22,7 @@ extern char *referer;
 extern char *cacert;
 extern int be_insecure;
 extern int be_verbose;
+extern long use_timeout;
 
 FILE* http_get(const char *orig_url, char **track_referer, const char *tfname);
 
