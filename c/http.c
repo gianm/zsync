@@ -110,7 +110,7 @@ CURL *make_curl_handle() {
     }
 
     if(cacert) {
-        /* --cacert */
+        /* -C */
         res = curl_easy_setopt( curl, CURLOPT_CAINFO, cacert );
         if( res != CURLE_OK ) {
             fprintf(stderr, "--cacert: %s\n", curl_easy_strerror(res));
@@ -120,7 +120,7 @@ CURL *make_curl_handle() {
     }
 
     if(be_insecure) {
-        /* --insecure */
+        /* -K */
         curl_easy_setopt( curl, CURLOPT_SSL_VERIFYPEER, 0 );
         curl_easy_setopt( curl, CURLOPT_SSL_VERIFYHOST, 0 );
     }
