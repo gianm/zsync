@@ -57,6 +57,9 @@ char *referer;
 /* Should we tell curl to use a different CA path? */
 char *cacert = NULL;
 
+/* Should we tell curl to use a particular interface (or IP or hostname)? */
+char *want_interface = NULL;
+
 /* Should we tell curl to ignore SSL peer verification? */
 int be_insecure = 0;
 
@@ -125,6 +128,15 @@ CURL *make_curl_handle() {
             fprintf(stderr, "--cacert: %s\n", curl_easy_strerror(res));
             curl_easy_cleanup(curl);
             return NULL;
+        }
+    }
+
+    if(want_interface) {
+        /* -I */
+        res = curl_easy_setopt( curl, CURLOPT_INTERFACE, want_interface );
+        if( res != CURLE_OK ) {
+            /* Warn and continue. Let's try anyway even if this setopt fails */
+            fprintf(stderr, "--interface: %s\n", curl_easy_strerror(res));
         }
     }
 

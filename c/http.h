@@ -20,6 +20,7 @@
 extern char *referer;
 
 extern char *cacert;
+extern char *want_interface;
 extern int be_insecure;
 extern int be_verbose;
 extern long use_timeout;
