@@ -434,7 +434,7 @@ int main(int argc, char **argv) {
     srand(getpid());
     {   /* Option parsing */
         int opt;
-        while ((opt = getopt(argc, argv, "A:k:o:i:Vsqvu:C:KT:I:")) != -1) {
+        while ((opt = getopt(argc, argv, "A:k:o:i:Vsqvu:C:KT:I:R:S:")) != -1) {
             switch (opt) {
             case 'A':           /* Authentication options for remote server */
                 {               /* Scan string as hostname=username:password */
@@ -493,6 +493,14 @@ int main(int argc, char **argv) {
             case 'K':
                 /* Insecure (disable SSL host/peer verification) */
                 be_insecure = 1;
+                break;
+            case 'R':
+                /* SSL certificate path */
+                sslcert = strdup(optarg);
+                break;
+            case 'S':
+                /* SSL private key path */
+                sslkey = strdup(optarg);
                 break;
             case 'T':
                 /* Timeout */

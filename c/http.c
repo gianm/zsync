@@ -60,6 +60,10 @@ char *cacert = NULL;
 /* Should we tell curl to use a particular interface (or IP or hostname)? */
 char *want_interface = NULL;
 
+/* Should we tell curl to use a particular SSL public / private cert? */
+char *sslcert = NULL;
+char *sslkey = NULL;
+
 /* Should we tell curl to ignore SSL peer verification? */
 int be_insecure = 0;
 
@@ -126,6 +130,26 @@ CURL *make_curl_handle() {
         res = curl_easy_setopt( curl, CURLOPT_CAINFO, cacert );
         if( res != CURLE_OK ) {
             fprintf(stderr, "--cacert: %s\n", curl_easy_strerror(res));
+            curl_easy_cleanup(curl);
+            return NULL;
+        }
+    }
+
+    if(sslcert) {
+        /* -R */
+        res = curl_easy_setopt( curl, CURLOPT_SSLCERT, sslcert );
+        if( res != CURLE_OK ) {
+            fprintf(stderr, "-R: %s\n", curl_easy_strerror(res));
+            curl_easy_cleanup(curl);
+            return NULL;
+        }
+    }
+
+    if(sslkey) {
+        /* -S */
+        res = curl_easy_setopt( curl, CURLOPT_SSLKEY, sslkey );
+        if( res != CURLE_OK ) {
+            fprintf(stderr, "-S: %s\n", curl_easy_strerror(res));
             curl_easy_cleanup(curl);
             return NULL;
         }
