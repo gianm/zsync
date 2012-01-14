@@ -403,7 +403,8 @@ int zsync_blocksize(const struct zsync_state *zs) {
  * Returns the suggested filename to be used for the final result of this
  * zsync.  Malloced string to be freed by the caller. */
 char *zsync_filename(const struct zsync_state *zs) {
-    return strdup(zs->gzhead && zs->zfilename ? zs->zfilename : zs->filename);
+    char *p = zs->gzhead && zs->zfilename ? zs->zfilename : zs->filename;
+    return p ? strdup(p) : NULL;
 }
 
 off_t zsync_filelen(const struct zsync_state *zs) {
