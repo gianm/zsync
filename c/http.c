@@ -408,7 +408,18 @@ size_t range_fetch_read_http_headers( void *ptr, size_t size, size_t nmemb, void
         rf->http_code = (int)(buf[9]-'0')*100 + (int)(buf[10]-'0')*10 + (int)(buf[11]-'0');
     }
 
-    /* Look for Content-Range */
+    /* HTTP 200 + Content-Length -> Entire file */
+    else if( rf->http_code == 200 && len > strlen("content-length: x") && strncasecmp(buf, "content-length: ", strlen("content-length: ")) == 0) {
+        off_t to = (off_t)strtoll(buf + strlen("content-length: "), (void*)(buf + len), 10);
+
+        /* Found to, and from = 0 */
+        if( range_fetch_expect( rf, 0, to ) != 0 ) {
+            /* Error. range_fetch_expect has already printed a message, so just leave */
+            return 0;
+        }
+    }
+
+    /* HTTP 206 + Content-Range -> Single range */
     else if( rf->http_code == 206 && len > strlen("content-range: bytes ") && strncasecmp(buf, "content-range: bytes ", strlen("content-range: bytes ")) == 0 ) {
         /* Okay, we're getting a non-MIME block from the remote. */
         off_t from, to;
@@ -426,7 +437,7 @@ size_t range_fetch_read_http_headers( void *ptr, size_t size, size_t nmemb, void
         }
     }
 
-    /* Look for Content-Type */
+    /* HTTP 206 + Content-Type multipart/byteranges -> Multiple ranges */
     else if( rf->http_code == 206 && len > strlen("content-type: multipart/byteranges") && strncasecmp(buf, "content-type: multipart/byteranges", strlen("content-type: multipart/byteranges")) == 0 ) {
         char *p;
 
@@ -498,9 +509,9 @@ size_t range_fetch_read_http_content( void *ptr, size_t size, size_t nmemb, void
     char *buf = (char *)ptr;
     size_t len = size * nmemb;
 
-    /* Make sure we're reading content from a 206 (partial content) */
-    if( rf->http_code != 206 ) {
-        fprintf( stderr, "Expected HTTP 206 (partial content) but got code %d!\n", rf->http_code );
+    /* Make sure we're reading content from a 200 (ok) or 206 (partial content) */
+    if( rf->http_code != 200 && rf->http_code != 206 ) {
+        fprintf( stderr, "Expected HTTP 200 or 206 (partial content) but got code %d!\n", rf->http_code );
         return 0;
     }
 
