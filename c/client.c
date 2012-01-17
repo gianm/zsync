@@ -583,14 +583,10 @@ int main(int argc, char **argv) {
          *target file */
         int i;
 
-        /* Try any seed files supplied by the command line */
-        for (i = 0; i < nseedfiles; i++) {
-            read_seed_file(zs, seedfiles[i]);
-        }
         /* If the target file already exists, we're probably updating that file
          * - so it's a seed file */
         if (!access(filename, R_OK)) {
-            read_seed_file(zs, filename);
+            seedfiles = append_ptrlist(&nseedfiles, seedfiles, filename);
         }
         /* If the .part file exists, it's probably an interrupted earlier
          * effort; a normal HTTP client would 'resume' from where it got to,
@@ -598,9 +594,26 @@ int main(int argc, char **argv) {
          * current version on the remote) and doesn't need to, because we can
          * treat it like any other local source of data. Use it now. */
         if (!access(temp_file, R_OK)) {
-            read_seed_file(zs, temp_file);
+            seedfiles = append_ptrlist(&nseedfiles, seedfiles, temp_file);
         }
 
+        /* Try any seed files supplied by the command line */
+        for (i = 0; i < nseedfiles; i++) {
+            int dup = 0, j;
+
+            /* And stop reading seed files once the target is complete. */
+            if (zsync_status(zs) >= 2) break;
+
+            /* Skip dups automatically, to save the person running the program
+             * having to worry about this stuff. */
+            for (j = 0; j < i; j++) {
+                if (!strcmp(seedfiles[i],seedfiles[j])) dup = 1;
+            }
+
+            /* And now, if not a duplicate, read it */
+            if (!dup)
+                read_seed_file(zs, seedfiles[i]);
+        }
         /* Show how far that got us */
         zsync_progress(zs, &local_used, NULL);
 
@@ -672,10 +685,19 @@ int main(int argc, char **argv) {
         strcat(oldfile_backup, ".zs-old");
 
         if (!access(filename, F_OK)) {
-            /* backup of old file */
-            unlink(oldfile_backup);     /* Don't care if this fails - the link below will catch any failure */
-            if (link(filename, oldfile_backup) != 0) {
-                perror("link");
+            /* Backup the old file. */
+            /* First, remove any previous backup. We don't care if this fails -
+             * the link below will catch any failure */
+            unlink(oldfile_backup);
+
+            /* Try linking the filename to the backup file name, so we will 
+               atomically replace the target file in the next step.
+               If that fails due to EPERM, it is probably a filesystem that
+               doesn't support hard-links - so try just renaming it to the
+               backup filename. */
+            if (link(filename, oldfile_backup) != 0
+                && (errno != EPERM || rename(filename, oldfile_backup) != 0)) {
+                perror("linkname");
                 fprintf(stderr,
                         "Unable to back up old file %s - completed download left in %s\n",
                         filename, temp_file);

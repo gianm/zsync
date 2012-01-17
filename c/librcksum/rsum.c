@@ -64,29 +64,6 @@ void rcksum_calc_checksum(unsigned char *c, const unsigned char *data,
     MD4Final(c, &ctx);
 }
 
-/* unlink_block(self, block_id)
- * Remove the given data block from the rsum hash table, so it won't be
- * returned in a hash lookup again (e.g. because we now have the data)
- */
-static void unlink_block(struct rcksum_state *z, zs_blockid id) {
-    struct hash_entry *t = &(z->blockhashes[id]);
-
-    struct hash_entry **p = &(z->rsum_hash[calc_rhash(z, t) & z->hashmask]);
-
-    while (*p != NULL) {
-        if (*p == t) {
-            if (t == z->rover) {
-                z->rover = t->next;
-            }
-            *p = (*p)->next;
-            return;
-        }
-        else {
-            p = &((*p)->next);
-        }
-    }
-}
-
 #ifndef HAVE_PWRITE
 /* Fallback pwrite(2) implementation if needed (but not strictly complete, as
  * it moves the file pointer - we don't care). */
@@ -136,7 +113,7 @@ static void write_blocks(struct rcksum_state *z, const unsigned char *data,
          * have received and stored the data for */
         int id;
         for (id = bfrom; id <= bto; id++) {
-            unlink_block(z, id);
+            remove_block_from_hash(z, id);
             add_to_ranges(z, id);
         }
     }
@@ -206,11 +183,16 @@ static int check_checksums_on_hash_chain(struct rcksum_state *const z,
     int got_blocks = 0;
     register struct rsum r = z->r[0];
 
-    z->rover = e;
+    /* This is a hint to the caller that they should try matching the next
+     * block against a particular hash entry (because at least z->seq_matches
+     * prior blocks to it matched in sequence). Clear it here and set it below
+     * if and when we get such a set of matches. */
+    z->next_match = NULL;
 
     /* This is essentially a for (;e;e=e->next), but we want to remove links from
      * the list as we find matches, without keeping too many temp variables.
      */
+    z->rover = e;
     while (z->rover) {
         zs_blockid id;
 
@@ -236,6 +218,7 @@ static int check_checksums_on_hash_chain(struct rcksum_state *const z,
         {
             int ok = 1;
             signed int check_md4 = 0;
+            zs_blockid next_known = -1;
 
             /* This block at least must match; we must match at least
              * z->seq_matches-1 others, which could either be trailing stuff,
@@ -257,14 +240,38 @@ static int check_checksums_on_hash_chain(struct rcksum_state *const z,
                      z->checksum_bytes))
                     ok = 0;
 
+                else if (next_known == -1)
+
                 check_md4++;
             } while (ok && !onlyone && check_md4 < z->seq_matches);
 
             if (ok) {
-                write_blocks(z, data, id, id + check_md4 - 1);
-                got_blocks += check_md4;
+                int num_write_blocks;
+
+                /* Find the next block that we already have data for. If this
+                 * is part of a run of matches then we have this stored already
+                 * as ->next_known. */
+                zs_blockid next_known = onlyone ? z->next_known : next_known_block(z, id);
+
                 z->stats.stronghit += check_md4;
-                z->next_match = z->blockhashes + id + check_md4;
+
+                if (next_known > id + check_md4) {
+                    num_write_blocks = check_md4;
+
+                    /* Save state for this run of matches */
+                    z->next_match = &(z->blockhashes[id + check_md4]);
+                    if (!onlyone) z->next_known = next_known;
+                }
+                else {
+                    /* We've reached the EOF, or data we already know. Just
+                     * write out the blocks we don't know, and that's the end
+                     * of this run of matches. */
+                    num_write_blocks = next_known - id;
+                }
+
+                /* Write out the matched blocks that we don't yet know */
+                write_blocks(z, data, id, id + num_write_blocks - 1);
+                got_blocks += num_write_blocks;
             }
         }
     }
@@ -332,8 +339,12 @@ int rcksum_submit_source_data(struct rcksum_state *const z, unsigned char *data,
 #endif
 
         {
+            /* # of blocks of the output file we got from this data */
             int thismatch = 0;
-            int blocks_matched = 0;
+            /* # of blocks to advance if thismatch > 0. Can be less than
+             * thismatch as thismatch could be N*blocks_matched, if a block was
+             * duplicated to multiple locations in the output file. */
+            int blocks_matched = 0; 
 
             /* If the previous block was a match, but we're looking for
              * sequential matches, then test this block against the block in
@@ -342,10 +353,8 @@ int rcksum_submit_source_data(struct rcksum_state *const z, unsigned char *data,
                 if (0 != (thismatch = check_checksums_on_hash_chain(z, z->next_match, data + x, 1))) {
                     blocks_matched = 1;
                 }
-                else
-                    z->next_match = NULL;
             }
-            if (!blocks_matched) {
+            if (!thismatch) {
                 const struct hash_entry *e;
 
                 /* Do a hash table lookup - first in the bithash (fast negative
