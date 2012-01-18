@@ -410,7 +410,7 @@ size_t range_fetch_read_http_headers( void *ptr, size_t size, size_t nmemb, void
 
     /* HTTP 200 + Content-Length -> Entire file */
     else if( rf->http_code == 200 && len > strlen("content-length: x") && strncasecmp(buf, "content-length: ", strlen("content-length: ")) == 0) {
-        off_t to = (off_t)strtoll(buf + strlen("content-length: "), (void*)(buf + len), 10);
+        off_t to = (off_t)strtoll(buf + strlen("content-length: "), (void*)(buf + len), 10) - 1;
 
         /* Found to, and from = 0 */
         if( range_fetch_expect( rf, 0, to ) != 0 ) {
